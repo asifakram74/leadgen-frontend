@@ -1,0 +1,6 @@
+src/app/leads/page.tsx(189,34): error TS2339: Property 'id' does not exist on type 'ScrapedResult'.
+src/app/leads/page.tsx(190,34): error TS2339: Property 'place_id' does not exist on type 'ScrapedResult'.
+src/app/leads/page.tsx(202,34): error TS2339: Property 'ai_reason' does not exist on type 'ScrapedResult'.
+src/app/leads/page.tsx(610,35): error TS2339: Property 'id' does not exist on type 'ScrapedResult'.
+src/app/leads/page.tsx(614,96): error TS2339: Property 'id' does not exist on type 'ScrapedResult'.
+src/app/leads/page.tsx(620,52): error TS2339: Property 'id' does not exist on type 'ScrapedResult'.
