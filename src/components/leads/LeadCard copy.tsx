@@ -84,7 +84,7 @@ export default function LeadCard({ item }: { item: ScrapedResult }) {
       }
 
       // Ensure we don't double up /storage/sites
-      let baseUrl = (process.env.NEXT_PUBLIC_API_URL || "https://leadgenbackend.onlinetoolpot.com").replace(/\/$/, "");
+      let baseUrl = (process.env.NEXT_PUBLIC_API_URL || "https://leadbackend.onlinetoolpot.com").replace(/\/$/, "");
 
       // Smart Merge: If path has /storage/sites and base doesn't, we are good.
       // If path doesn't have it, we might need to add it.
@@ -128,7 +128,7 @@ export default function LeadCard({ item }: { item: ScrapedResult }) {
 
       let baseUrl = (
         process.env.NEXT_PUBLIC_API_URL ||
-        "https://leadgenbackend.onlinetoolpot.com"
+        "https://leadbackend.onlinetoolpot.com"
       ).replace(/\/$/, "");
 
       let finalPath = cleanPath;

@@ -83,7 +83,7 @@ export default function LeadCard({ item, onViewAudit }: { item: ScrapedResult, o
 
   /* ── Helpers ─────────────────────────────────────────── */
   const getFullUrl = (path: string) => {
-    const base = (process.env.NEXT_PUBLIC_API_URL || "https://leadgenbackend.onlinetoolpot.com").replace(/\/$/, "");
+    const base = (process.env.NEXT_PUBLIC_API_URL || "https://leadbackend.onlinetoolpot.com").replace(/\/$/, "");
     let clean = path.startsWith("/") ? path : `/${path}`;
     if (!clean.startsWith("/storage/")) clean = `/storage${clean}`;
     return `${base}${clean}`;
@@ -263,7 +263,7 @@ export default function LeadCard({ item, onViewAudit }: { item: ScrapedResult, o
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      const base = (process.env.NEXT_PUBLIC_API_URL || "https://leadgenbackend.onlinetoolpot.com").replace(/\/$/, "");
+                      const base = (process.env.NEXT_PUBLIC_API_URL || "https://leadbackend.onlinetoolpot.com").replace(/\/$/, "");
                       window.open(`${base}/storage/${localLeadFolder}/audit_report.pdf`, "_blank", "noopener");
                     }}
                     className="w-10 h-10 flex items-center justify-center rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500 hover:text-white transition-all shadow-lg active:scale-90"

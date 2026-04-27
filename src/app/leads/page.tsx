@@ -236,7 +236,7 @@ Return **ONLY valid HTML/CSS code** inside a single code block. No explanations.
 
   const handleDownload = async (url: string, filename: string) => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://leadgenbackend.onlinetoolpot.com";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://leadbackend.onlinetoolpot.com";
       const fullUrl = `${apiUrl}${url}`;
       const response = await fetch(fullUrl, { headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` } });
       if (!response.ok) throw new Error("File not found");

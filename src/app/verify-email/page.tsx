@@ -21,7 +21,7 @@ function VerifyEmailContent() {
     
     const verifyToken = async () => {
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://leadgenbackend.onlinetoolpot.com";
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://leadbackend.onlinetoolpot.com";
         const res = await fetch(`${apiUrl}/auth/verify-email?token=${token}`);
         const data = await res.json();
         

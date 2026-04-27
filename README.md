@@ -36,7 +36,7 @@ LeadStation Pro Frontend is a state-of-the-art CRM interface built for high-perf
 3.  **Configure Environment**:
     Create a `.env.local` file in the root and add:
     ```bash
-    NEXT_PUBLIC_API_URL=https://leadgenbackend.onlinetoolpot.com
+    NEXT_PUBLIC_API_URL=https://leadbackend.onlinetoolpot.com
     ```
 
 4.  **Run Development Server**:

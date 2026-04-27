@@ -143,7 +143,7 @@ export default function AuditSummaryModal({
   const { overall, ux100, seo100, perf100, respo100, oneLiner } = parseAuditReport(aiReport);
 
   const getFullUrl = (path: string) => {
-    const base = (process.env.NEXT_PUBLIC_API_URL || "https://leadgenbackend.onlinetoolpot.com").replace(/\/$/, "");
+    const base = (process.env.NEXT_PUBLIC_API_URL || "https://leadbackend.onlinetoolpot.com").replace(/\/$/, "");
     let clean = path.startsWith("/") ? path : `/${path}`;
     if (!clean.startsWith("/storage/")) clean = `/storage${clean}`;
     return `${base}${clean}`;
@@ -276,7 +276,7 @@ export default function AuditSummaryModal({
             {leadFolder && (
               <button
                 onClick={() => {
-                  const base = (process.env.NEXT_PUBLIC_API_URL || "https://leadgenbackend.onlinetoolpot.com").replace(/\/$/, "");
+                  const base = (process.env.NEXT_PUBLIC_API_URL || "https://leadbackend.onlinetoolpot.com").replace(/\/$/, "");
                   window.open(`${base}/storage/${leadFolder}/audit_report.pdf`, "_blank", "noopener");
                 }}
                 className="group/btn flex items-center gap-4 p-4 rounded-2xl bg-rose-50/50 border border-rose-100 hover:bg-rose-600 transition-all shadow-sm"
