@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import api from "@/lib/api";
 import AuditSummaryModal from "./AuditSummaryCard";
 import BuilderModal from "./BuilderModal";
+import AuditModelModal from "./AuditModelModal";
 
 interface ScrapedResult {
   id?: string;
@@ -39,6 +40,8 @@ interface ScrapedResult {
   generated_site_url?: string;
   generated_domain?: string;
   lead_folder?: string;
+  audit_report_html_url?: string;
+  audit_report_pdf_url?: string;
   audit_report_url?: string;
 }
 
@@ -51,6 +54,7 @@ export default function LeadCard({ item, onViewAudit }: { item: ScrapedResult, o
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"create" | "recreate">("create");
+  const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
 
   // Local Audit State (for instant UI updates without reload)
   const [localAiStatus, setLocalAiStatus] = useState(() => {
@@ -61,23 +65,26 @@ export default function LeadCard({ item, onViewAudit }: { item: ScrapedResult, o
     return item.ai_status;
   });
   const [localAiReport, setLocalAiReport] = useState(item.ai_report);
-  const [localAuditUrl, setLocalAuditUrl] = useState(item.audit_report_url);
+  const [localHtmlUrl, setLocalHtmlUrl] = useState(item.audit_report_html_url);
+  const [localPdfUrl, setLocalPdfUrl] = useState(item.audit_report_pdf_url);
   const [localLeadFolder, setLocalLeadFolder] = useState(item.lead_folder);
 
   // Sync with props when parent state updates
   useEffect(() => {
     setLocalAiStatus(item.ai_status);
     setLocalAiReport(item.ai_report);
-    setLocalAuditUrl(item.audit_report_url);
+    setLocalHtmlUrl(item.audit_report_html_url);
+    setLocalPdfUrl(item.audit_report_pdf_url);
     setLocalLeadFolder(item.lead_folder);
     if (item.generated_site_url) setNewUrl(item.generated_site_url);
     if (item.generated_domain) setDomainUrl(`https://${item.generated_domain}`);
-  }, [item.ai_status, item.ai_report, item.audit_report_url, item.lead_folder, item.generated_site_url, item.generated_domain]);
+  }, [item.ai_status, item.ai_report, item.audit_report_html_url, item.audit_report_pdf_url, item.lead_folder, item.generated_site_url, item.generated_domain]);
 
   const isTrustworthy = item.is_trustworthy === "Trustworthy";
   const isHealthy = localAiStatus === "Healthy" || localAiStatus === "No Issue";
   const hasIssues = localAiStatus === "Issues Found" || localAiStatus === "Issues";
-  const hasReport = !!(localAiReport && localAiReport.trim().length > 20);
+  const hasReport = !!(localHtmlUrl || item.audit_report_html_url || item.audit_report_url || localAiStatus === 'Success' || item.ai_report);
+  const hasReportData = !!(localAiReport && localAiReport.trim().length > 20);
   const hasWebsite = !!(item.website && item.website.trim().length > 0);
   const hasSite = !!(newUrl || item.generated_site_url);
 
@@ -128,7 +135,7 @@ export default function LeadCard({ item, onViewAudit }: { item: ScrapedResult, o
 
   // Function to view the audit report HTML in a new tab
   const handlePreviewReport = () => {
-    const path = item.audit_report_url;
+    const path = localHtmlUrl || item.audit_report_html_url || item.audit_report_url;
 
     if (!path) {
       console.warn("Audit report URL is missing");
@@ -152,12 +159,16 @@ export default function LeadCard({ item, onViewAudit }: { item: ScrapedResult, o
   };
 
   /* ── Re-Audit ─────────────────────────────────────────── */
-  const handleReAudit = async () => {
+  const handleReAudit = async (modelId: string) => {
     try {
       setIsAuditing(true);
       setLocalAiStatus("Auditing..."); // Immediate visual feedback
+      setIsAuditModalOpen(false);
 
-      const response = await api.post("/api/lead/re-audit", { lead_id: item.id });
+      const response = await api.post("/api/lead/re-audit", { 
+        lead_id: item.id,
+        model_id: modelId
+      });
       const updatedLead = response.data;
 
       // Update local state with fresh intelligence
@@ -168,7 +179,8 @@ export default function LeadCard({ item, onViewAudit }: { item: ScrapedResult, o
       }
       setLocalAiStatus(newStatus);
       setLocalAiReport(updatedLead.ai_report);
-      setLocalAuditUrl(updatedLead.audit_report_url);
+      setLocalHtmlUrl(updatedLead.audit_report_html_url);
+      setLocalPdfUrl(updatedLead.audit_report_pdf_url);
       setLocalLeadFolder(updatedLead.lead_folder);
 
       if (newStatus === "Unreachable") {
@@ -222,6 +234,16 @@ export default function LeadCard({ item, onViewAudit }: { item: ScrapedResult, o
         />
       )}
 
+      {/* ── Audit Model Selector Modal ─────────────────── */}
+      {isAuditModalOpen && (
+        <AuditModelModal
+          lead={item}
+          onClose={() => setIsAuditModalOpen(false)}
+          onConfirm={handleReAudit}
+          isAuditing={isAuditing}
+        />
+      )}
+
       {/* ── Card ────────────────────────────────────────── */}
       <div className={`relative premium-glass group hover:border-primary/50 rounded-3xl p-6 transition-all shadow-xl hover:-translate-y-2 flex flex-col h-full duration-500 ${hasIssues ? "border-rose-500/20" : ""}`}>
 
@@ -259,15 +281,17 @@ export default function LeadCard({ item, onViewAudit }: { item: ScrapedResult, o
                     <BarChart3 className="w-5 h-5" />
                   </button>
 
-                  {/* View PDF Report in New Tab */}
+                  {/* Download PDF Report */}
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const base = (process.env.NEXT_PUBLIC_API_URL || "https://leadbackend.onlinetoolpot.com").replace(/\/$/, "");
-                      window.open(`${base}/storage/${localLeadFolder}/audit_report.pdf`, "_blank", "noopener");
+                    onClick={() => {
+                      if (localPdfUrl) {
+                        window.open(getFullUrl(localPdfUrl), "_blank", "noopener");
+                      } else if (localLeadFolder) {
+                        leadService.downloadAuditReport(localLeadFolder);
+                      }
                     }}
                     className="w-10 h-10 flex items-center justify-center rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500 hover:text-white transition-all shadow-lg active:scale-90"
-                    title="View Audit PDF"
+                    title="Download Audit PDF"
                   >
                     <FileText className="w-5 h-5" />
                   </button>
@@ -279,7 +303,7 @@ export default function LeadCard({ item, onViewAudit }: { item: ScrapedResult, o
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleReAudit();
+                    setIsAuditModalOpen(true);
                   }}
                   disabled={isAuditing}
                   className={`w-10 h-10 flex items-center justify-center rounded-xl bg-primary/10 border border-primary/20 text-primary hover:bg-primary hover:text-white transition-all shadow-lg active:scale-90 ${isAuditing ? 'opacity-50' : ''}`}

@@ -3,9 +3,12 @@
 import { useState, useEffect, useRef } from "react";
 import {
   X, Sparkles, Loader2, Globe, MapPin, Phone, Tag,
-  Lightbulb, ArrowRight
+  Lightbulb, ArrowRight, Zap, Moon, Palette, Calendar, Image, Utensils, Star, MessageCircle, ShieldAlert,
+  Crown, Activity, Leaf, Terminal, Cpu, Rocket, Brain, Bolt, ChevronDown, User as UserIcon, BarChart3
 } from "lucide-react";
 import api from "@/lib/api";
+import ModelSelector, { AVAILABLE_MODELS } from "./ModelSelector";
+import { toast } from "sonner";
 
 interface LeadData {
   id?: string;
@@ -21,76 +24,83 @@ interface LeadData {
   ai_report?: string;
   ai_status?: string;
   ai_reason?: string;
-  audit_report_url?: string;
+  audit_report_html_url?: string;
+  audit_report_pdf_url?: string;
   lead_folder?: string;
+  job_uuid?: string;
   place_id?: string;
   generated_site_url?: string;
   generated_domain?: string;
 }
 
 interface BuilderModalProps {
-  lead: LeadData;
-  mode: "create" | "recreate";
+  lead?: LeadData; // Optional for bulk mode
+  bulkLeads?: LeadData[]; // Used in bulk build mode
+  mode: "create" | "recreate" | "bulk";
   onClose: () => void;
-  onSuccess: (url: string, domain: string) => void;
+  onSuccess?: (url: string, domain: string) => void;
+  onBulkSuccess?: (results: { id: string, url: string, domain: string }[]) => void;
 }
 
 const PROMPT_CHIPS = [
-  "Make it modern with a dark theme",
-  "Use bright, vibrant colors",
-  "Add a contact booking form",
-  "Include a photo gallery section",
-  "Focus on showcasing the menu",
-  "Highlight customer reviews",
-  "Add Google Maps embed",
-  "Include WhatsApp chat button",
+  { label: "Modern Dark Theme", icon: Moon },
+  { label: "Elite FAQ Section", icon: ShieldAlert },
+  { label: "Meet the Team", icon: UserIcon },
+  { label: "Service Pricing Table", icon: Tag },
+  { label: "Testimonials Grid", icon: Star },
+  { label: "Before & After Gallery", icon: Image },
+  { label: "Add Google Maps embed", icon: MapPin },
+  { label: "WhatsApp Chat Button", icon: MessageCircle },
+  { label: "Vibrant & Bright Colors", icon: Palette },
+  { label: "Contact Booking Form", icon: Calendar },
+  { label: "Detailed Photo Gallery", icon: Image },
+  { label: "Showcase Services Menu", icon: Utensils },
+  { label: "Highlight Star Reviews", icon: Star },
+  { label: "Video Hero Background", icon: Rocket },
+  { label: "AI Smart Content", icon: Brain },
+  { label: "SEO Meta Mastery", icon: BarChart3 },
+  { label: "Insurance & Partners", icon: Globe },
 ];
 
-export default function BuilderModal({ lead, mode, onClose, onSuccess }: BuilderModalProps) {
+export default function BuilderModal({ lead, bulkLeads, mode, onClose, onSuccess, onBulkSuccess }: BuilderModalProps) {
   const [prompt, setPrompt] = useState(
-    `You are an expert front-end developer and UI/UX designer.
-
-### Input Variables (Context):
-- **Business Category:** ${lead.category || "Business"}
-- **Website Analysis Report:** ${lead.ai_report ? lead.ai_report.replace(/\n/g, " ").substring(0, 500) + "..." : "N/A"}
-- **Original Website URL:** ${lead.website || "N/A"}
-- **Lead Info:** Name: ${lead.name}, Phone: ${lead.phone || "N/A"}, Address: ${lead.address || "N/A"}
+    `### MASTER ARCHITECT DIRECTIVE:
+You are an Elite UI/UX Engineer. Build a world-class, high-conversion website for: **${lead?.name || bulkLeads?.[0]?.name || "N/A"}**.
 
 ---
 
-### Your Primary Mission:
-You are building a high-conversion, professional website. 
-
-#### 1. Content Harvesting (CRITICAL)
-- **Use Real Data**: If the Analysis Report or URL contains ANY real text (About Us, Services, Menu items, Testimonials), YOU MUST USE IT. Avoid placeholders if real content is available.
-- **Image Intelligence**: Use the **Business Category** to pick the most relevant Unsplash keywords. 
-  - *Example*: If category is "Ice Cream Shop", use keywords like \`gelato\`, \`ice-cream-parlor\`, \`sprinkles\`.
-  - *Example*: If category is "Bakery", use \`fresh-croissants\`, \`artisanal-bread\`.
-
-#### 2. Layout Intent (Industry-Specific)
-- **Food/Ice Cream/Bakery/Cafe/Restaurant**: Prioritize "Mouth-watering" Hero sections, full Menus, "Order Online" or "Reserve" buttons, and Location/Hours.
-- **Service Businesses**: Prioritize "Get a Quote", Trust Badges, and Service Grids.
-
-#### 3. Visual DNA Inheritance
-- Mirror the original site's color palette (e.g., Maroon/Cream/Gold) and branding style modernized.
-
-#### 4. Audit Resolutions (MANDATORY)
-- **Fix SEO**: Address missing meta descriptions, structured data, and ensure perfect semantic HTML hierarchy (H1, H2, H3).
-- **Responsiveness**: Guarantee a mobile-first, fluid layout that adapts flawlessly to all screen sizes.
-- **UI/UX & User Experience**: Create a frictionless, modern, and highly-accessible interface that solves ALL issues flagged in the Analysis Report.
+### 1. IDENTITY & CONTEXT:
+- **Business Category**: ${lead?.category || bulkLeads?.[0]?.category || "General Business"}
+- **Analysis Intelligence**: ${lead?.ai_report?.substring(0, 500) || bulkLeads?.[0]?.ai_report?.substring(0, 500) || "N/A"}
+- **Original Asset**: ${lead?.website || bulkLeads?.[0]?.website || "N/A"}
+- **Contact Protocol**: ${lead?.phone || "N/A"} | ${lead?.address || "N/A"}
 
 ---
 
-### Design Guidelines:
-- **Logo**: Use the original logo URL if found in the report. If not, create a text-based logo in the brand's primary color.
-- **Color Locking**: Use the exact brand colors mentioned in the report for CTAs and accents.
-- **Images**: Use \`https://images.unsplash.com/featured/800x600/?${lead.category ? encodeURIComponent(lead.category) : "business"}\` using the most specific keywords from the Category.
+### 2. DESIGN BLUEPRINT (PRO-LEVEL):
+- **Visual DNA**: Modernize the brand's color palette (e.g., from analysis) into a premium, fluid aesthetic.
+- **Industry Intent**: If Medical/Service, prioritize 'Trust & Booking'. If Food/Retail, prioritize 'Mouth-watering Visuals & Menu'.
+- **Typography**: Use clean, modern sans-serif fonts with generous white space and high-contrast accessibility.
 
-### Output Format:
-Return **ONLY valid HTML/CSS code** inside a single code block. No explanations. The <title> tag must exactly match the brand name "${lead.name}".`
+---
+
+### 3. TECHNICAL MANDATES (STRICT):
+- **Icons**: Use **FontAwesome 6 Free** (\`<i class="fa-solid fa-...">\`). DO NOT use SVGs or emojis.
+- **Photography**: Use real business photos from the lead data if available. 
+- **Fallback**: If no real photos, use LoremFlickr (\`https://loremflickr.com/800/600/[keyword]\`). Use **STRICTLY ONE-WORD** keywords.
+- **Hero Layout**: Content must be **strictly left-aligned** or use a split layout (text left, image right). No center-aligning.
+- **SEO & Schema**: Implement perfect semantic HTML (H1, H2, H3), meta tags, and Schema.org local business markup.
+- **Maps**: Embed a responsive Google Maps iframe for the provided address.
+
+---
+
+### 4. FINAL OUTPUT:
+Return ONLY the valid, single-file HTML/CSS/JS code block. No explanations.`
   );
   const [isBuilding, setIsBuilding] = useState(false);
   const [error, setError] = useState("");
+  const [selectedChips, setSelectedChips] = useState<string[]>([]);
+  const [selectedModel, setSelectedModel] = useState(AVAILABLE_MODELS[0].id);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Focus textarea on open
@@ -114,8 +124,29 @@ Return **ONLY valid HTML/CSS code** inside a single code block. No explanations.
       document.body.style.overflow = "unset";
     };
   }, []);
-  const appendChip = (chip: string) => {
-    setPrompt(prev => prev ? `${prev.trim()}, ${chip.toLowerCase()}` : chip);
+  const toggleChip = (label: string) => {
+    if (selectedChips.includes(label)) {
+      setSelectedChips(prev => prev.filter(c => c !== label));
+      const cleanLabel = label.toLowerCase();
+      setPrompt(prev => prev.replace(new RegExp(`\\n\\n- ${cleanLabel}.*`, 'g'), ''));
+    } else {
+      setSelectedChips(prev => [...prev, label]);
+      let instruction = label.toLowerCase();
+      // Enhanced Map Instruction with real address
+      if (label === "Add Google Maps embed") {
+        const address = lead?.address || lead?.name || "[Business Address]";
+        instruction = `add a precise Google Maps embed section for the address: ${address}`;
+      }
+      setPrompt(prev => prev ? `${prev.trim()}\n\n- ${instruction}` : instruction);
+    }
+
+    // Auto-scroll to bottom of prompt to show the update
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.scrollTop = textareaRef.current.scrollHeight;
+      }
+    }, 50);
+
     textareaRef.current?.focus();
   };
 
@@ -136,44 +167,88 @@ Return **ONLY valid HTML/CSS code** inside a single code block. No explanations.
     }, 1000);
     return () => clearInterval(interval);
   }, [isBuilding]);
-
   const handleSubmit = async () => {
     if (!prompt.trim()) {
       setError("Please provide a prompt or use a suggestion.");
       return;
     }
-
     setIsBuilding(true);
     setError("");
     setProgress(0);
-    try {
-      const res = await api.post("/api/builder/generate", {
-        job_uuid: lead.id,
-        place_id: lead.place_id || "",
-        name: lead.name,
-        category: lead.category || "Business",
-        address: lead.address || "",
-        phone: lead.phone || "",
-        email: lead.emails?.split(",")[0] || "",
-        rating: lead.rating || "0",
-        reviews: lead.reviews || "0",
-        website: lead.website || "",
-        maps_url: lead.maps_url || "",
-        ai_report: lead.ai_report || "",
-        ai_status: lead.ai_status || "",
-        ai_reason: lead.ai_reason || "",
-        audit_report_url: lead.audit_report_url || "",
-        lead_folder: lead.lead_folder || "",
-        user_prompt: prompt.trim(),
-      });
 
-      if (res.data?.url) {
-        onSuccess(res.data.url, res.data.generated_domain || "");
-        onClose();
+    const leadsToProcess = mode === "bulk" && bulkLeads ? bulkLeads : (lead ? [lead] : []);
+    const total = leadsToProcess.length;
+    const results: { id: string, url: string, domain: string }[] = [];
+
+    try {
+      for (let i = 0; i < total; i++) {
+        const currentLead = leadsToProcess[i];
+
+        const res = await api.post("/api/builder/generate", {
+          model_id: selectedModel,
+          lead_id: currentLead.id,
+          name: currentLead.name,
+          category: currentLead.category || "",
+          phone: currentLead.phone || "",
+          email: currentLead.emails?.split(",")[0] || "",
+          rating: currentLead.rating || "0",
+          reviews: currentLead.reviews || "0",
+          website: currentLead.generated_site_url || "",
+          maps_url: currentLead.maps_url || "",
+          address: currentLead.address || "",
+          ai_report: currentLead.ai_report || "",
+          ai_status: currentLead.ai_status || "",
+          ai_reason: currentLead.ai_reason || "",
+          audit_report_html_url: currentLead.audit_report_html_url || "",
+          audit_report_pdf_url: currentLead.audit_report_pdf_url || "",
+          lead_folder: currentLead.lead_folder || "",
+          job_uuid: currentLead.job_uuid || "",
+          place_id: currentLead.place_id || currentLead.id || "",
+          user_prompt: prompt.trim(),
+        });
+
+        if (res.data?.url) {
+          results.push({
+            id: currentLead.id!,
+            url: res.data.url,
+            domain: res.data.generated_domain || ""
+          });
+
+          if (mode !== "bulk") {
+            toast.success("Intelligence Ready", {
+              description: `Website for ${currentLead.name} is now live!`,
+            });
+            onSuccess?.(res.data.url, res.data.generated_domain || "");
+          }
+        }
+
+        setProgress(Math.round(((i + 1) / total) * 100));
       }
+
+      if (mode === "bulk") {
+        toast.success("Bulk Build Complete", {
+          description: `Successfully generated ${results.length} websites!`,
+        });
+        onBulkSuccess?.(results);
+      }
+
+      onClose();
     } catch (err: any) {
-      const msg = err?.response?.data?.detail || err?.message || "Build failed. Please try again.";
-      setError(typeof msg === "string" ? msg : JSON.stringify(msg));
+      const status = err?.response?.status;
+      const detail = err?.response?.data?.detail || "";
+
+      let title = "Intelligence Interrupted";
+      let description = "An unexpected error occurred during generation.";
+
+      if (status === 429 || detail.toLowerCase().includes("quota")) {
+        title = "Quota Limit Reached";
+        description = "Free tier limit hit. Switch to DeepSeek or wait a moment.";
+      } else if (detail) {
+        description = detail;
+      }
+
+      setError(description);
+      toast.error(title, { description });
     } finally {
       setIsBuilding(false);
     }
@@ -191,7 +266,7 @@ Return **ONLY valid HTML/CSS code** inside a single code block. No explanations.
       <div className="relative w-full max-w-2xl max-h-[90vh] bg-card/95 backdrop-blur-3xl border border-border shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-500 rounded-3xl">
 
         {/* Integrated Header & Context Bar - Ultra Compact */}
-        <div className="px-8 py-4 bg-white/5 border-b border-white/5 relative z-10">
+        <div className="px-8 py-4 bg-white/5 border-b border-white/5 relative z-20">
           <div className="flex items-center justify-between gap-6">
             <div className="flex items-center gap-4 min-w-0">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-primary to-violet-600 flex items-center justify-center shrink-0 shadow-lg shadow-primary/20">
@@ -199,19 +274,21 @@ Return **ONLY valid HTML/CSS code** inside a single code block. No explanations.
               </div>
               <div className="min-w-0">
                 <h2 className="text-sm font-black uppercase tracking-tight text-foreground truncate">
-                  {mode === "recreate" ? "Re-engineer Identity" : "Site Intelligence"}
+                  {mode === "bulk" ? `Bulk Engineer (${bulkLeads?.length} Sites)` : mode === "recreate" ? "Re-engineer Identity" : "Site Intelligence"}
                 </h2>
-                <div className="flex items-center gap-2 mt-0.5 overflow-hidden">
-                  <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-primary/10 border border-primary/10 shrink-0">
-                    <Tag className="w-2.5 h-2.5 text-primary" />
-                    <span className="text-[8px] font-black text-primary uppercase tracking-widest">{lead.category || "Business"}</span>
-                  </div>
-                  <span className="text-[9px] text-foreground/20 font-bold truncate shrink">{lead.address || "Global Target"}</span>
+
+                {/* Model Selector Component */}
+                <div className="mt-1">
+                  <ModelSelector
+                    selectedModel={selectedModel}
+                    onSelect={setSelectedModel}
+                    disabled={isBuilding}
+                  />
                 </div>
               </div>
             </div>
             <div className="flex items-center gap-3 shrink-0">
-              {lead.phone && (
+              {mode !== "bulk" && lead?.phone && (
                 <div className="hidden sm:flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-emerald-500/5 border border-emerald-500/10 text-emerald-500">
                   <Phone className="w-3 h-3" />
                   <span className="text-[10px] font-black">{lead.phone}</span>
@@ -231,54 +308,74 @@ Return **ONLY valid HTML/CSS code** inside a single code block. No explanations.
         {/* Single Scrollable Container */}
         <div className="flex-1 overflow-y-auto custom-scrollbar relative z-10">
           <div className="px-8 py-8 space-y-8">
-          {/* Prompt Field */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <label className="text-[10px] font-black uppercase tracking-widest text-foreground/50 flex items-center gap-2">
-                <div className="w-5 h-5 rounded bg-primary/10 flex items-center justify-center">
-                  <Lightbulb className="w-3 h-3 text-primary" />
-                </div>
-                Prompt Configuration
-              </label>
-              <span className="text-[10px] font-bold text-primary/60 italic">Custom instruction override active</span>
+            {/* Prompt Field */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] font-black uppercase tracking-widest text-foreground/50 flex items-center gap-2">
+                  <div className="w-5 h-5 rounded bg-primary/10 flex items-center justify-center">
+                    <Lightbulb className="w-3 h-3 text-primary" />
+                  </div>
+                  Prompt Configuration
+                </label>
+                <span className="text-[10px] font-bold text-primary/60 italic">Custom instruction override active</span>
+              </div>
+              <div className="group relative">
+                <div className="absolute inset-0 bg-primary/5 rounded-2xl blur-xl group-focus-within:bg-primary/10 transition-all pointer-events-none" />
+                <textarea
+                  ref={textareaRef}
+                  value={prompt}
+                  onChange={e => setPrompt(e.target.value)}
+                  placeholder={`Describe the desired output for ${lead?.name || "this batch of sites"}...`}
+                  rows={10}
+                  className="relative w-full bg-black/20 backdrop-blur-md border border-white/20 rounded-2xl px-5 py-4 text-[11px] font-mono text-foreground/80 placeholder:text-foreground/20 resize-none outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all leading-relaxed custom-scrollbar shadow-inner"
+                />
+              </div>
             </div>
-            <div className="group relative">
-              <div className="absolute inset-0 bg-primary/5 rounded-2xl blur-xl group-focus-within:bg-primary/10 transition-all pointer-events-none" />
-              <textarea
-                ref={textareaRef}
-                value={prompt}
-                onChange={e => setPrompt(e.target.value)}
-                placeholder={`Describe the desired output for ${lead.name}...`}
-                rows={10}
-                className="relative w-full bg-black/20 backdrop-blur-md border border-white/10 rounded-2xl px-5 py-4 text-[11px] font-mono text-foreground/80 placeholder:text-foreground/20 resize-none outline-none focus:border-primary/40 focus:ring-4 focus:ring-primary/5 transition-all leading-relaxed custom-scrollbar shadow-inner"
-              />
-            </div>
-          </div>
 
-          {/* Quick Suggestions */}
-          <div className="space-y-4">
-            <p className="text-[10px] font-black uppercase tracking-widest text-foreground/30">Rapid Injection Chips</p>
-            <div className="flex flex-wrap gap-2">
-              {PROMPT_CHIPS.map((chip, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => appendChip(chip)}
-                  className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/5 hover:border-primary/40 hover:bg-primary/5 text-[10px] font-bold text-foreground/60 hover:text-primary transition-all active:scale-95"
-                >
-                  + {chip}
-                </button>
-              ))}
+            {/* Quick Suggestions */}
+            <div className="space-y-4">
+              <label className="text-[10px] font-black uppercase tracking-widest text-foreground/50 flex items-center gap-2">
+                <div className="w-5 h-5 rounded bg-indigo-500/10 flex items-center justify-center">
+                  <Zap className="w-3 h-3 text-indigo-500" />
+                </div>
+                Rapid Injection Chips
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {PROMPT_CHIPS.map((chip, idx) => {
+                  const isSelected = selectedChips.includes(chip.label);
+                  const Icon = chip.icon;
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => toggleChip(chip.label)}
+                      disabled={isBuilding}
+                      className={`px-3 py-2 rounded-xl transition-all active:scale-95 text-[10px] font-bold flex items-center gap-2 ${isSelected
+                        ? "bg-emerald-500/10 border-emerald-500/50 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
+                        : "bg-white/5 border-white/5 text-foreground/60 hover:border-primary/40 hover:bg-primary/5 hover:text-primary"
+                        } border disabled:opacity-30 disabled:cursor-not-allowed`}
+                    >
+                      <Icon className={`w-3.5 h-3.5 ${isSelected ? "text-emerald-400" : "text-foreground/30"}`} />
+                      {chip.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
+            {error && (
+              <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-start gap-4 text-rose-500 animate-in slide-in-from-top-4 duration-500 shadow-2xl shadow-rose-500/10">
+                <div className="w-10 h-10 rounded-xl bg-rose-500/20 flex items-center justify-center shrink-0">
+                  <ShieldAlert className="w-5 h-5 animate-pulse" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black uppercase tracking-widest opacity-50">Operation Interrupted</p>
+                  <p className="text-[11px] font-bold leading-relaxed">{error}</p>
+                  <p className="text-[9px] font-medium opacity-70">Switch to a different model like **DeepSeek R1** to continue.</p>
+                </div>
+              </div>
+            )}
           </div>
-          {error && (
-            <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-center gap-3 text-rose-500 animate-in slide-in-from-top-2 duration-300">
-              <Sparkles className="w-4 h-4 shrink-0 rotate-180" />
-              <p className="text-xs font-bold leading-relaxed">{error}</p>
-            </div>
-          )}
         </div>
-      </div>
 
         {/* Footer actions */}
         <div className="px-8 py-6 bg-white/5 border-t border-white/5 space-y-6 relative z-10">

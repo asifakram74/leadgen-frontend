@@ -10,7 +10,7 @@ interface FilterActionBarProps {
   setFilterWebsite: (val: "all" | "yes" | "no" | "generated") => void;
   filterAudit: string;
   setFilterAudit: (val: string) => void;
-  handleBulkAudit: () => void;
+  onAuditAll: () => void;
   handleBulkBuild: () => void;
   isBulkAuditing: boolean;
   isBulkBuilding: boolean;
@@ -28,7 +28,7 @@ export default function FilterActionBar({
   setFilterWebsite,
   filterAudit,
   setFilterAudit,
-  handleBulkAudit,
+  onAuditAll,
   handleBulkBuild,
   isBulkAuditing,
   isBulkBuilding,
@@ -71,6 +71,27 @@ export default function FilterActionBar({
             </button>
           )}
         </div>
+
+        {/* Smart Audit Alert */}
+        {!isBulkAuditing && toAuditCount > 0 && (
+          <div className="mx-2 p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl flex items-center justify-between animate-in slide-in-from-top-2 duration-500">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-indigo-500/20 flex items-center justify-center">
+                <Sparkles className="w-4 h-4 text-indigo-500 animate-pulse" />
+              </div>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-indigo-500/80">Intelligence Gap Detected</p>
+                <p className="text-[9px] font-bold text-foreground/50">{toAuditCount} leads in this view are missing complete audits or had errors.</p>
+              </div>
+            </div>
+            <button 
+              onClick={onAuditAll}
+              className="px-4 py-2 bg-indigo-500 text-white text-[9px] font-black uppercase tracking-widest rounded-lg hover:bg-indigo-600 transition-colors shadow-sm active:scale-95"
+            >
+              Resolve All Now
+            </button>
+          </div>
+        )}
 
         <div className="flex flex-col lg:flex-row items-center gap-4">
           {/* Search */}
@@ -116,7 +137,7 @@ export default function FilterActionBar({
           {/* Bulk Actions */}
           <div className="flex items-center gap-3 w-full lg:w-auto">
             <button
-              onClick={handleBulkAudit}
+              onClick={onAuditAll}
               disabled={isBulkAuditing || isBulkBuilding || toAuditCount === 0}
               className="flex-1 lg:flex-none flex items-center justify-center gap-2 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-50 disabled:hover:bg-indigo-500 text-white px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg active:scale-95"
             >

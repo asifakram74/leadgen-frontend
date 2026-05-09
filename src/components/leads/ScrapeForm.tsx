@@ -9,8 +9,6 @@ interface ScrapeFormProps {
   setCategory: (val: string) => void;
   location: string;
   setLocation: (val: string) => void;
-  maxResults: string;
-  setMaxResults: (val: string) => void;
   loading: boolean;
   onSubmit: (e: React.FormEvent) => void;
 }
@@ -20,8 +18,6 @@ export default function ScrapeForm({
   setCategory,
   location,
   setLocation,
-  maxResults,
-  setMaxResults,
   loading,
   onSubmit
 }: ScrapeFormProps) {
@@ -149,23 +145,6 @@ export default function ScrapeForm({
             </div>
           </div>
 
-          {/* 3. Limit (Max Results) */}
-          <div className="w-full lg:w-32 space-y-4 group/field">
-            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground text-center block group-focus-within/field:text-primary transition-colors">
-              Quota
-            </label>
-            <input
-              type="number"
-              value={maxResults}
-              onChange={(e) => setMaxResults(e.target.value)}
-              placeholder="∞"
-              className="w-full bg-muted/20 border border-border rounded-2xl py-5 px-4
-                text-foreground text-center font-black placeholder:text-muted-foreground/30
-                hover:bg-muted/30 focus:bg-background
-                focus:border-primary/40 focus:outline-none
-                transition-all duration-300 [appearance:textfield]"
-            />
-          </div>
 
           {/* 4. Action Button */}
           <button

@@ -1,7 +1,7 @@
 "use client";
 
-import { 
-  Eye, FileText, ShieldCheck, 
+import {
+  Eye, FileText, ShieldCheck,
   X, BarChart3, Globe, Zap, Search, Activity,
   Mail, MessageCircle, Share2, Sparkles, Loader2
 } from "lucide-react";
@@ -11,6 +11,8 @@ interface AuditSummaryModalProps {
   isOpen: boolean;
   onClose: () => void;
   aiReport: string;
+  auditReportHtmlUrl?: string;
+  auditReportPdfUrl?: string;
   auditReportUrl?: string;
   leadFolder?: string;
   businessName: string;
@@ -23,24 +25,31 @@ interface AuditSummaryModalProps {
 
 function parseAuditReport(report: string) {
   const extractScore = (keys: string[]): number | null => {
-    // Sanitize report: remove bolding for easier matching
-    const cleanReport = report.replace(/\*\*/g, '');
-    
-    for (const key of keys) {
-      // 1. Table format: | UX | 8 | or | UX | 8/10 |
-      const tableMatch = cleanReport.match(new RegExp(`\\|\\s*${key}[^|]*\\|\\s*(\\d+)(?:\\s*/\\s*10)?\\s*\\|`, "i"));
-      if (tableMatch) return parseInt(tableMatch[1], 10);
-      
-      // 2. Standard format: UX: 8/10 or UX - 8/10
-      const standardMatch = cleanReport.match(new RegExp(`${key}[^\\d\\n]{0,20}(\\d+)\\s*/\\s*10`, "i"));
-      if (standardMatch) return parseInt(standardMatch[1], 10);
+    // Sanitize report: remove all markdown styling and extra whitespace
+    const cleanReport = report.replace(/[*_#]/g, '').replace(/\r\n/g, '\n');
 
-      // 3. Simple number next to key: UX: 8
-      const simpleMatch = cleanReport.match(new RegExp(`${key}[^\\d\\n]{0,10}(\\d+)(?!\\s*%)`, "i"));
-      if (simpleMatch) {
-        const val = parseInt(simpleMatch[1], 10);
-        if (val <= 10) return val;
+    for (const key of keys) {
+      // Create a pattern that matches the key followed by optional separators and then a number
+      // This handles: "UX: 8", "UX - 8", "UX | 8", "UX/UI | 8", etc.
+
+      // 1. Table format with absolute precision: | UX | 8 | or | UX | 8/10 |
+      const tableMatch = cleanReport.match(new RegExp(`\\|\\s*[^|]*${key}[^|]*\\|\\s*(\\d+(?:\\.\\d+)?)(?:\\s*/\\s*10)?\\s*\\|`, "i"));
+      if (tableMatch) return Math.round(parseFloat(tableMatch[1]));
+
+      // 2. Multi-line or Colon format: "Category: UX \n Score: 8/10" or "UX: 8/10"
+      const colonMatch = cleanReport.match(new RegExp(`${key}[^\\n]{0,40}[:\\-|=]\\s*(\\d+(?:\\.\\d+)?)(?:\\s*/\\s*10)?`, "i"));
+      if (colonMatch) return Math.round(parseFloat(colonMatch[1]));
+
+      // 3. Sentence format: "The UX score is 8" or "UX was rated 8"
+      const sentenceMatch = cleanReport.match(new RegExp(`${key}[^\\d]{0,50}?\\s+(\\d+(?:\\.\\d+)?)(?:\\s*/\\s*10|(?![%\\d]))`, "i"));
+      if (sentenceMatch) {
+        const val = parseFloat(sentenceMatch[1]);
+        if (val <= 10) return Math.round(val);
       }
+
+      // 4. Percentage fallback: UX: 80%
+      const percentMatch = cleanReport.match(new RegExp(`${key}[^\\d]{0,20}(\\d+(?:\\.\\d+)?)\\s*%`, "i"));
+      if (percentMatch) return Math.min(10, Math.round(parseFloat(percentMatch[1]) / 10));
     }
     return null;
   };
@@ -69,8 +78,8 @@ function parseAuditReport(report: string) {
   }
   if (!oneLiner) {
     // Clean markdown bolding from potential report snippets
-    oneLiner = report.split('\n').find(l => l.length > 40 && !l.includes('|'))?.replace(/\*\*/g, '').trim() || 
-               "Professional analysis identifies key growth opportunities for this digital asset.";
+    oneLiner = report.split('\n').find(l => l.length > 40 && !l.includes('|'))?.replace(/\*\*/g, '').trim() ||
+      "Professional analysis identifies key growth opportunities for this digital asset.";
   }
 
   return { overall, ux100, seo100, perf100, respo100, oneLiner };
@@ -89,15 +98,15 @@ function CompactMetric({ score, label, color, icon: Icon }: { score: number | nu
   };
 
   const status = isAvailable ? getStatus(score) : { text: "UNKNOWN", bg: "bg-black/5", textCol: "text-black/40", desc: "Data Not Determined" };
-  
+
   return (
     <div className={`flex flex-col gap-4 p-5 rounded-[2rem] border transition-all ${isAvailable ? 'bg-white/60 border-white shadow-sm' : 'bg-black/5 border-black/5 opacity-50'}`}>
       <div className="flex items-center gap-4">
         <div className="relative w-14 h-14">
           <svg className="w-full h-full -rotate-90">
             <circle cx="50%" cy="50%" r="40%" fill="none" stroke="currentColor" strokeWidth="3" className="text-black/5" />
-            <circle 
-              cx="50%" cy="50%" r="40%" fill="none" stroke="currentColor" strokeWidth="5" 
+            <circle
+              cx="50%" cy="50%" r="40%" fill="none" stroke="currentColor" strokeWidth="5"
               strokeDasharray="125.6"
               strokeDashoffset={125.6 - (125.6 * percentage) / 100}
               className={`${isAvailable ? color : 'text-black/10'} transition-all duration-1000 ease-out`}
@@ -116,7 +125,7 @@ function CompactMetric({ score, label, color, icon: Icon }: { score: number | nu
           </div>
         </div>
       </div>
-      
+
       <div className={`mt-auto px-4 py-2 rounded-xl ${status.bg} flex flex-col gap-0.5`}>
         <span className={`text-[9px] font-black ${status.textCol}`}>{status.text}</span>
         <span className="text-[8px] font-bold text-black/40 uppercase tracking-wider">{status.desc}</span>
@@ -129,6 +138,8 @@ export default function AuditSummaryModal({
   isOpen,
   onClose,
   aiReport,
+  auditReportHtmlUrl,
+  auditReportPdfUrl,
   auditReportUrl,
   leadFolder,
   businessName,
@@ -149,6 +160,30 @@ export default function AuditSummaryModal({
     return `${base}${clean}`;
   };
 
+  const handleLiveAudit = () => {
+    // Prioritize dedicated HTML URL, fallback to folder pattern, then legacy key
+    let path = auditReportHtmlUrl || "";
+    if (!path && leadFolder) path = `${leadFolder}/audit_report.html`;
+    if (!path && auditReportUrl) path = auditReportUrl.replace(".pdf", ".html");
+
+    if (path) {
+      window.open(getFullUrl(path), "_blank", "noopener");
+    }
+  };
+
+  const handleDownloadPdf = () => {
+    let path = auditReportPdfUrl || auditReportUrl || "";
+    if (!path && leadFolder) path = `${leadFolder}/audit_report.pdf`;
+
+    if (path) {
+      const base = (process.env.NEXT_PUBLIC_API_URL || "https://leadgenbackend.onlinetoolpot.com").replace(/\/$/, "");
+      // Use the direct download bridge to force save-as dialog
+      window.location.href = `${base}/api/download/audit?path=${encodeURIComponent(path)}`;
+    } else if (leadFolder) {
+      leadService.downloadAuditReport(leadFolder);
+    }
+  };
+
   const getSocialIcon = (url: string) => {
     const u = url.toLowerCase();
     if (u.includes('facebook')) return "fa-brands fa-facebook-f text-[#1877F2]";
@@ -162,13 +197,13 @@ export default function AuditSummaryModal({
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-      <div 
-        className="absolute inset-0 bg-background/40 backdrop-blur-md animate-in fade-in duration-500" 
-        onClick={onClose} 
+      <div
+        className="absolute inset-0 bg-background/40 backdrop-blur-md animate-in fade-in duration-500"
+        onClick={onClose}
       />
-      
+
       <div className="relative w-full max-w-6xl h-[90vh] bg-card/95 backdrop-blur-3xl border border-border rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 fade-in duration-300">
-        
+
         {/* Compact Header */}
         <div className="p-6 md:p-8 flex items-center justify-between border-b border-white/60 bg-white/40">
           <div className="flex items-center gap-5">
@@ -184,7 +219,7 @@ export default function AuditSummaryModal({
           </div>
 
           <div className="flex items-center gap-2 pr-4">
-             <span className="text-[10px] font-black text-black/20 uppercase tracking-widest">{overall}/ 100</span>
+            <span className="text-[10px] font-black text-black/20 uppercase tracking-widest">{overall}/ 100</span>
           </div>
 
           <div className="flex items-center gap-3">
@@ -199,7 +234,7 @@ export default function AuditSummaryModal({
               </button>
             )}
 
-            <button 
+            <button
               onClick={onClose}
               className="w-10 h-10 flex items-center justify-center rounded-xl bg-black/5 hover:bg-rose-500 text-black/40 hover:text-white transition-all active:scale-90 border border-black/5"
             >
@@ -210,7 +245,7 @@ export default function AuditSummaryModal({
 
         {/* Content */}
         <div className="flex-1 p-8 md:p-12 space-y-8 overflow-y-auto custom-scrollbar">
-          
+
           {/* Main Grid: Verdict & Social */}
           <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
             {/* Verdict (Always present) */}
@@ -227,24 +262,24 @@ export default function AuditSummaryModal({
             {/* Social (Always present) */}
             <div className="md:col-span-5 p-6 rounded-3xl bg-indigo-600 text-white shadow-lg flex flex-col justify-between space-y-4">
               <div className="flex items-center justify-between">
-                 <span className="text-[9px] font-black uppercase tracking-widest opacity-60">Digital Footprint</span>
-                 <Share2 className="w-3 h-3 opacity-60" />
+                <span className="text-[9px] font-black uppercase tracking-widest opacity-60">Digital Footprint</span>
+                <Share2 className="w-3 h-3 opacity-60" />
               </div>
               <div className="flex flex-wrap gap-2">
-                  {socialLinks ? socialLinks.split(',').map((link, i) => {
-                    const cleanLink = link.includes(':') ? link.split(': ')[1] : link;
-                    return (
-                      <a key={i} href={cleanLink?.trim()} target="_blank" className="w-10 h-10 flex items-center justify-center rounded-2xl bg-white/20 hover:bg-white text-white hover:text-indigo-600 transition-all border border-white/30 shadow-sm group/soc active:scale-95">
-                        <i className={`${getSocialIcon(cleanLink?.trim() || '').replace(/text-\[[^\]]+\]|text-\w+-\d+/g, '')} text-base group-hover:scale-110 transition-transform`} />
-                      </a>
-                    );
-                  }) : (
-                    <p className="text-[9px] font-bold opacity-40 py-2">No Assets Found</p>
-                  )}
+                {socialLinks ? socialLinks.split(',').map((link, i) => {
+                  const cleanLink = link.includes(':') ? link.split(': ')[1] : link;
+                  return (
+                    <a key={i} href={cleanLink?.trim()} target="_blank" className="w-10 h-10 flex items-center justify-center rounded-2xl bg-white/20 hover:bg-white text-white hover:text-indigo-600 transition-all border border-white/30 shadow-sm group/soc active:scale-95">
+                      <i className={`${getSocialIcon(cleanLink?.trim() || '').replace(/text-\[[^\]]+\]|text-\w+-\d+/g, '')} text-base group-hover:scale-110 transition-transform`} />
+                    </a>
+                  );
+                }) : (
+                  <p className="text-[9px] font-bold opacity-40 py-2">No Assets Found</p>
+                )}
               </div>
               <div className="flex items-center gap-3 pt-4 border-t border-white/10">
-                 <Mail className="w-3 h-3 opacity-60" />
-                 <span className="text-[9px] font-black truncate uppercase tracking-wider">{emails?.split(',')[0] || "No Verified Email"}</span>
+                <Mail className="w-3 h-3 opacity-60" />
+                <span className="text-[9px] font-black truncate uppercase tracking-wider">{emails?.split(',')[0] || "No Verified Email"}</span>
               </div>
             </div>
           </div>
@@ -257,11 +292,37 @@ export default function AuditSummaryModal({
             <CompactMetric score={respo100} label="Responsiveness" color="text-rose-500" icon={ShieldCheck} />
           </div>
 
+          {/* Full Report Text */}
+          {/* <div className="p-8 rounded-3xl bg-slate-50 border border-slate-100 shadow-inner">
+            <div className="flex items-center gap-2 mb-6 opacity-40">
+              <FileText className="w-4 h-4" />
+              <span className="text-[10px] font-black uppercase tracking-[0.2em]">Detailed Analysis Report</span>
+            </div>
+            <div className="prose prose-slate max-w-none text-black/70">
+              <div className="whitespace-pre-wrap font-medium leading-relaxed space-y-4">
+                {aiReport ? aiReport.split('\n').map((line, i) => {
+                  if (line.startsWith('# ')) return <h1 key={i} className="text-2xl font-black text-primary mt-8 mb-4">{line.replace('# ', '')}</h1>;
+                  if (line.startsWith('## ')) return <h2 key={i} className="text-xl font-bold text-primary mt-6 mb-3 border-b border-black/5 pb-2">{line.replace('## ', '')}</h2>;
+                  if (line.startsWith('### ')) return <h3 key={i} className="text-lg font-bold text-indigo-600 mt-4 mb-2">{line.replace('### ', '')}</h3>;
+                  if (line.startsWith('|')) return null; // Hide tables as they are summarized in metrics
+                  if (line.startsWith('---')) return <hr key={i} className="my-8 border-black/5" />;
+                  if (line.startsWith('- ') || line.startsWith('* ')) return <li key={i} className="ml-4 list-disc mb-1">{line.substring(2)}</li>;
+                  return <p key={i} className="mb-2">{line}</p>;
+                }) : (
+                  <div className="flex flex-col items-center justify-center py-12 text-black/20">
+                    <Loader2 className="w-10 h-10 animate-spin mb-4" />
+                    <p className="font-black uppercase tracking-widest text-xs">Waiting for AI Intelligence...</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div> */}
+
           {/* Action Footer */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {auditReportUrl && (
               <button
-                onClick={() => window.open(getFullUrl(auditReportUrl), "_blank", "noopener")}
+                onClick={handleLiveAudit}
                 className="group/btn flex items-center gap-4 p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100 hover:bg-indigo-600 transition-all shadow-sm"
               >
                 <div className="w-10 h-10 flex items-center justify-center rounded-xl bg-indigo-100 group-hover/btn:bg-white/20 transition-colors">
@@ -273,20 +334,17 @@ export default function AuditSummaryModal({
                 </div>
               </button>
             )}
-            {leadFolder && (
+            {auditReportUrl && (
               <button
-                onClick={() => {
-                  const base = (process.env.NEXT_PUBLIC_API_URL || "https://leadbackend.onlinetoolpot.com").replace(/\/$/, "");
-                  window.open(`${base}/storage/${leadFolder}/audit_report.pdf`, "_blank", "noopener");
-                }}
+                onClick={handleDownloadPdf}
                 className="group/btn flex items-center gap-4 p-4 rounded-2xl bg-rose-50/50 border border-rose-100 hover:bg-rose-600 transition-all shadow-sm"
               >
                 <div className="w-10 h-10 flex items-center justify-center rounded-xl bg-rose-100 group-hover/btn:bg-white/20 transition-colors">
                   <FileText className="w-5 h-5 text-rose-600 group-hover/btn:text-white" />
                 </div>
                 <div className="text-left">
-                  <p className="text-sm font-black text-rose-600 group-hover/btn:text-white">Premium PDF</p>
-                  <p className="text-[8px] font-bold uppercase tracking-widest text-black/30 group-hover/btn:text-white/60">High-Fidelity Document</p>
+                  <p className="text-sm font-black text-rose-600 group-hover/btn:text-white">Download PDF</p>
+                  <p className="text-[8px] font-bold uppercase tracking-widest text-black/30 group-hover/btn:text-white/60">Professional Document</p>
                 </div>
               </button>
             )}

@@ -6,8 +6,11 @@ export const leadService = {
    * Returns immediately with { job_id, status, query }.
    * Endpoint: POST /api/lead
    */
-  startlead: async (params: { category: string; location: string; max_results?: number }) => {
-    const response = await api.post("/api/lead", params);
+  startlead: async (params: { category: string; location: string; auto_audit?: boolean }) => {
+    const response = await api.post("/api/lead", {
+      ...params,
+      auto_audit: params.auto_audit ?? true // Default to true
+    });
     return response.data;
   },
 
@@ -55,7 +58,7 @@ export const leadService = {
    * Endpoint: /api/builder/download-audit/{folder_name}
    */
   downloadAuditReport: async (folderName: string) => {
-    const response = await api.get(`/api/builder/download-audit/${encodeURIComponent(folderName)}`, {
+    const response = await api.get(`/api/builder/download-audit/${folderName}`, {
       responseType: 'blob', 
     });
 
@@ -83,8 +86,11 @@ export const leadService = {
    * Triggers a specific AI audit for a lead.
    * Endpoint: POST /api/lead/re-audit
    */
-  analyzeLead: async (leadId: string) => {
-    const response = await api.post("/api/lead/re-audit", { lead_id: leadId });
+  analyzeLead: async (leadId: string, modelId: string = "deepseek-chat") => {
+    const response = await api.post("/api/lead/re-audit", { 
+      lead_id: leadId,
+      model_id: modelId
+    });
     return response.data;
   },
 

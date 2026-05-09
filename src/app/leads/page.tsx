@@ -10,8 +10,10 @@ import StatsGrid from "@/components/leads/StatsGrid";
 import LeadCard from "@/components/leads/LeadCard";
 import HistoryTable from "@/components/leads/HistoryTable";
 import AuditSummaryModal from "@/components/leads/AuditSummaryCard";
+import BuilderModal from "@/components/leads/BuilderModal";
 import FloatingNav from "@/components/leads/FloatingNav";
 import VaultSidebar from "@/components/leads/VaultSidebar";
+import AuditModelModal from "@/components/leads/AuditModelModal";
 
 import { leadService } from "@/services/scrapeService";
 import { toast } from "sonner";
@@ -39,6 +41,8 @@ interface ScrapedResult {
   ai_status?: string;
   ai_report?: string;
   ai_reason?: string;
+  audit_report_html_url?: string;
+  audit_report_pdf_url?: string;
   audit_report_url?: string;
   generated_site_url?: string;
   lead_folder?: string;
@@ -50,7 +54,6 @@ import FilterActionBar from "@/components/leads/FilterActionBar";
 export default function LeadsCenter() {
   const [category, setCategory] = useState("");
   const [location, setLocation] = useState("");
-  const [maxResults, setMaxResults] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<ScrapedResult[]>([]);
@@ -72,6 +75,9 @@ export default function LeadsCenter() {
   const [isGlobalAuditing, setIsGlobalAuditing] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [historyScope, setHistoryScope] = useState<"mine" | "all">("mine");
+  const [isBulkBuildModalOpen, setIsBulkBuildModalOpen] = useState(false);
+  const [leadsToBulkBuild, setLeadsToBulkBuild] = useState<ScrapedResult[]>([]);
+  const [isBulkAuditModalOpen, setIsBulkAuditModalOpen] = useState(false);
 
   const role = useSelector((state: RootState) => state.auth.role);
   const isAdmin = role === "super_admin" || role === "admin";
@@ -111,25 +117,26 @@ export default function LeadsCenter() {
   });
 
   // ─── Bulk Action: Audit All ───────────────────────────────────
-  const handleBulkAudit = async () => {
-    const toAudit = filteredResults.filter(r => !!r.website && (!r.audit_report_url || r.ai_status?.includes("Error") || r.ai_status?.includes("Pending")));
+  const handleBulkAudit = async (modelId: string) => {
+    const toAudit = filteredResults.filter(r => !!r.website && (!r.audit_report_html_url || r.ai_status?.includes("Error") || r.ai_status?.includes("Pending")));
     if (toAudit.length === 0) {
       toast.info("No leads in current view require auditing.");
       return;
     }
 
+    setIsBulkAuditModalOpen(false);
     setIsBulkAuditing(true);
     setBulkProgress(0);
-    toast.info(`Starting bulk audit for ${toAudit.length} leads...`);
+    toast.info(`Starting bulk audit with ${modelId} for ${toAudit.length} leads...`);
 
     let completed = 0;
     // Process in small parallel chunks to avoid overwhelming the server
-    const CHUNK_SIZE = 3;
+    const CHUNK_SIZE = 2; // Reduced to 2 for bulk to be safer with multiple browser instances
     for (let i = 0; i < toAudit.length; i += CHUNK_SIZE) {
       const chunk = toAudit.slice(i, i + CHUNK_SIZE);
       await Promise.all(chunk.map(async (lead) => {
         try {
-          const updated = await leadService.analyzeLead(lead.id!);
+          const updated = await leadService.analyzeLead(lead.id!, modelId);
           setResults(prev => prev.map(r => r.maps_url === lead.maps_url ? { ...r, ...updated } : r));
         } catch (e) {
           console.error("Bulk Audit Error:", e);
@@ -144,94 +151,14 @@ export default function LeadsCenter() {
     toast.success("Bulk audit sequence complete!");
   };
 
-  // ─── Bulk Action: Build All ────────────────────────────────────
-  const handleBulkBuild = async () => {
+  const handleBulkBuild = () => {
     const toBuild = filteredResults.filter(r => r.ai_status?.toLowerCase().includes("issues") && !r.generated_site_url);
     if (toBuild.length === 0) {
       toast.info("No leads in current view require site generation.");
       return;
     }
-
-    setIsBulkBuilding(true);
-    setBulkProgress(0);
-    toast.info(`Starting bulk site generation for ${toBuild.length} leads...`);
-
-    let completed = 0;
-    for (let i = 0; i < toBuild.length; i += 1) { // Builders are heavier, process 1 by 1
-      const lead = toBuild[i];
-      try {
-        const defaultPrompt = `You are an expert front-end developer and UI/UX designer.
-
-### Input Variables (Context):
-- **Business Category:** ${lead.category || "Business"}
-- **Website Analysis Report:** ${lead.ai_report ? lead.ai_report.replace(/\n/g, " ").substring(0, 500) + "..." : "N/A"}
-- **Original Website URL:** ${lead.website || "N/A"}
-- **Lead Info:** Name: ${lead.name}, Phone: ${lead.phone || "N/A"}, Address: ${lead.address || "N/A"}
-
----
-
-### Your Primary Mission:
-You are building a high-conversion, professional website. 
-
-#### 1. Content Harvesting (CRITICAL)
-- **Use Real Data**: If the Analysis Report or URL contains ANY real text (About Us, Services, Menu items, Testimonials), YOU MUST USE IT. Avoid placeholders if real content is available.
-- **Image Intelligence**: Use the **Business Category** to pick the most relevant Unsplash keywords. 
-  - *Example*: If category is "Ice Cream Shop", use keywords like \`gelato\`, \`ice-cream-parlor\`, \`sprinkles\`.
-  - *Example*: If category is "Bakery", use \`fresh-croissants\`, \`artisanal-bread\`.
-
-#### 2. Layout Intent (Industry-Specific)
-- **Food/Ice Cream/Bakery/Cafe/Restaurant**: Prioritize "Mouth-watering" Hero sections, full Menus, "Order Online" or "Reserve" buttons, and Location/Hours.
-- **Service Businesses**: Prioritize "Get a Quote", Trust Badges, and Service Grids.
-
-#### 3. Visual DNA Inheritance
-- Mirror the original site's color palette (e.g., Maroon/Cream/Gold) and branding style modernized.
-
-#### 4. Audit Resolutions (MANDATORY)
-- **Fix SEO**: Address missing meta descriptions, structured data, and ensure perfect semantic HTML hierarchy (H1, H2, H3).
-- **Responsiveness**: Guarantee a mobile-first, fluid layout that adapts flawlessly to all screen sizes.
-- **UI/UX & User Experience**: Create a frictionless, modern, and highly-accessible interface that solves ALL issues flagged in the Analysis Report.
-
----
-
-### Design Guidelines:
-- **Logo**: Use the original logo URL if found in the report. If not, create a text-based logo in the brand's primary color.
-- **Color Locking**: Use the exact brand colors mentioned in the report for CTAs and accents.
-- **Images**: Use \`https://images.unsplash.com/featured/800x600/?${lead.category ? encodeURIComponent(lead.category) : "business"}\` using the most specific keywords from the Category.
-
-### Output Format:
-Return **ONLY valid HTML/CSS code** inside a single code block. No explanations. The <title> tag must exactly match the brand name "${lead.name}".`;
-
-        const payload = {
-          job_uuid: lead.id,
-          place_id: lead.place_id || "",
-          name: lead.name,
-          category: lead.category || "Business",
-          address: lead.address || "",
-          phone: lead.phone || "",
-          email: lead.emails?.split(",")[0] || "",
-          rating: lead.rating || "0",
-          reviews: lead.reviews || "0",
-          website: lead.website || "",
-          maps_url: lead.maps_url || "",
-          ai_report: lead.ai_report || "",
-          ai_status: lead.ai_status || "",
-          ai_reason: lead.ai_reason || "",
-          audit_report_url: lead.audit_report_url || "",
-          lead_folder: lead.lead_folder || "",
-          user_prompt: defaultPrompt,
-        };
-        const updated = await leadService.generateSite(payload);
-        setResults(prev => prev.map(r => r.maps_url === lead.maps_url ? { ...r, ...updated } : r));
-      } catch (e) {
-        console.error("Bulk Build Error:", e);
-      } finally {
-        completed++;
-        setBulkProgress(Math.round((completed / toBuild.length) * 100));
-      }
-    }
-
-    setIsBulkBuilding(false);
-    toast.success("Bulk site generation sequence complete!");
+    setLeadsToBulkBuild(toBuild);
+    setIsBulkBuildModalOpen(true);
   };
 
   const handleDownload = async (url: string, filename: string) => {
@@ -272,27 +199,53 @@ Return **ONLY valid HTML/CSS code** inside a single code block. No explanations.
     if (!category || !location) return;
     if (pollRef.current) clearInterval(pollRef.current);
 
+    // Initial state: We don't clear results yet to allow for a smooth 'Sync' transition
     setLoading(true);
     setError(null);
-    setStats(null);
-    setJobStatus("queued");
-    setResults([]); // Reset results for a new fresh scrape
+    let lastLeadCount = 0;
 
     try {
       const payload: any = { category, location };
-      if (maxResults.trim() !== "") payload.max_results = parseInt(maxResults, 10);
-      const { job_id } = await leadService.startlead(payload);
+      const response = await leadService.startlead(payload);
+      const { job_id, data, status, count } = response;
+
+      // --- Instant Discovery Injection ---
+      if (data && Array.isArray(data) && data.length > 0) {
+        setResults(data);
+        lastLeadCount = data.length;
+        setJobStatus(status || "running");
+        setStats({
+          total: count || data.length,
+          trustworthy: data.filter((r: any) => r.is_trustworthy === "Trustworthy").length,
+          csvUrl: response.csv_url,
+          jsonUrl: response.json_url
+        });
+        toast.info(`Instant Discovery: Synchronizing ${data.length} existing leads with live data...`, {
+          icon: <Activity className="w-4 h-4 text-primary animate-pulse" />
+        });
+      } else {
+        setResults([]); // No cache, start fresh
+      }
 
       pollRef.current = setInterval(async () => {
         try {
           const job = await leadService.getJobStatus(job_id);
           setJobStatus(job.status);
 
-          // Push data into state as it arrives without disabling the global loading state
-          if (job.data && Array.isArray(job.data) && job.data.length > 0) {
+          // Push data into state as it arrives
+          if (job.data && Array.isArray(job.data)) {
+            // Check if we found brand new leads since the last poll
+            if (job.data.length > lastLeadCount && lastLeadCount > 0) {
+              toast.success(`Matrix Discovery: Found ${job.data.length - lastLeadCount} new businesses!`, {
+                description: "Updating your database in real-time.",
+                duration: 3000
+              });
+            }
+            lastLeadCount = job.data.length;
+
             setResults(job.data);
             setStats({
-              total: job.count,
+              total: job.count || job.data.length,
               trustworthy: job.data.filter((r: any) => r.is_trustworthy === "Trustworthy").length,
               csvUrl: job.csv_url,
               jsonUrl: job.json_url
@@ -307,18 +260,17 @@ Return **ONLY valid HTML/CSS code** inside a single code block. No explanations.
               const finalData = await leadService.getJobResults(job.json_url);
               setResults(finalData);
             }
-            setLoading(false); // Finally stop the sync state
+            setLoading(false);
             setJobStatus("");
             await fetchHistory();
-            toast.success("Matrix Extraction Complete");
+            toast.success("Intelligence Matrix Synchronized", {
+              description: `Total ${lastLeadCount} businesses verified and indexed.`
+            });
 
-            // ─── AUTO-AUDIT: Trigger bulk audit automatically if leads were found ────────
             if (job.data && job.data.length > 0) {
               const pendingCount = job.data.filter((r: any) => r.website && (!r.ai_status || r.ai_status.includes("Pending"))).length;
               if (pendingCount > 0) {
-                toast.info(`Automating intelligence audit for ${pendingCount} new leads...`);
-                // Use setTimeout to ensure state is settled before triggering
-                setTimeout(() => handleBulkAudit(), 1000);
+                toast.info(`DeepSeek Intelligence engine is already auditing ${pendingCount} leads in the background...`);
               }
             }
           } else if (job.status === "error") {
@@ -351,7 +303,6 @@ Return **ONLY valid HTML/CSS code** inside a single code block. No explanations.
         setLocation(job.location || "");
       }
 
-      setMaxResults(job.count?.toString() || "");
 
       let leadData;
       if (job.json_url) {
@@ -417,13 +368,23 @@ Return **ONLY valid HTML/CSS code** inside a single code block. No explanations.
         <LeadsHeader />
 
         <div>
-          <ScrapeForm category={category} setCategory={setCategory} location={location} setLocation={setLocation} maxResults={maxResults} setMaxResults={setMaxResults} loading={loading} onSubmit={handleScrape} />
+          <ScrapeForm category={category} setCategory={setCategory} location={location} setLocation={setLocation} loading={loading} onSubmit={handleScrape} />
 
           {error && (
             <div className="mt-6 p-4 bg-rose-500/10 border border-rose-500/20 text-rose-500 rounded-2xl flex items-center gap-3">
               <AlertCircle className="w-5 h-5" />
               <p className="text-sm font-semibold">{error}</p>
             </div>
+          )}
+
+          {/* Audit Modal for Bulk */}
+          {isBulkAuditModalOpen && (
+            <AuditModelModal
+              lead={{ name: "All Filtered Leads" }}
+              onClose={() => setIsBulkAuditModalOpen(false)}
+              onConfirm={handleBulkAudit}
+              isAuditing={isBulkAuditing}
+            />
           )}
 
           <StatsGrid stats={stats} handleDownload={handleDownload} category={category} location={location} loading={loading} />
@@ -438,7 +399,13 @@ Return **ONLY valid HTML/CSS code** inside a single code block. No explanations.
         <div className="space-y-12 animate-in fade-in slide-in-from-bottom-6 min-h-[400px]">
           {results.length > 0 && (() => {
             const toBuildCount = filteredResults.filter(r => r.ai_status?.toLowerCase().includes("issues") && !r.generated_site_url).length;
-            const toAuditCount = filteredResults.filter(r => !r.ai_status || r.ai_status === "Pending..." || r.ai_status === "Analysis Error").length;
+            const toAuditCount = filteredResults.filter(r =>
+              !r.ai_status ||
+              r.ai_status === "Pending..." ||
+              r.ai_status === "Analysis Error" ||
+              r.ai_status?.toLowerCase().includes("error") ||
+              r.ai_status?.toLowerCase().includes("unreachable")
+            ).length;
 
             return (
               <>
@@ -451,7 +418,7 @@ Return **ONLY valid HTML/CSS code** inside a single code block. No explanations.
                   setFilterWebsite={setFilterWebsite}
                   filterAudit={filterAudit}
                   setFilterAudit={setFilterAudit}
-                  handleBulkAudit={handleBulkAudit}
+                  onAuditAll={() => handleBulkAudit("deepseek-chat")}
                   handleBulkBuild={handleBulkBuild}
                   isBulkAuditing={isBulkAuditing}
                   isBulkBuilding={isBulkBuilding}
@@ -504,6 +471,8 @@ Return **ONLY valid HTML/CSS code** inside a single code block. No explanations.
             isOpen={!!selectedAudit}
             onClose={() => setSelectedAudit(null)}
             aiReport={selectedAudit.ai_report || ""}
+            auditReportHtmlUrl={selectedAudit.audit_report_html_url}
+            auditReportPdfUrl={selectedAudit.audit_report_pdf_url}
             auditReportUrl={selectedAudit.audit_report_url}
             leadFolder={selectedAudit.lead_folder}
             businessName={selectedAudit.name}
@@ -531,6 +500,25 @@ Return **ONLY valid HTML/CSS code** inside a single code block. No explanations.
               } finally {
                 setIsGlobalAuditing(false);
               }
+            }}
+          />
+        )}
+
+        {/* ── Bulk Builder Intelligence Modal ─────────── */}
+        {isBulkBuildModalOpen && (
+          <BuilderModal
+            mode="bulk"
+            bulkLeads={leadsToBulkBuild}
+            onClose={() => setIsBulkBuildModalOpen(false)}
+            onBulkSuccess={(res) => {
+              // Synchronize all generated sites with the main leads matrix
+              setResults(prev => prev.map(lead => {
+                const updated = res.find(r => r.id === lead.id);
+                if (updated) {
+                  return { ...lead, generated_site_url: updated.url, generated_domain: updated.domain };
+                }
+                return lead;
+              }));
             }}
           />
         )}

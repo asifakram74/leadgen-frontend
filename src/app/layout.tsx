@@ -75,15 +75,16 @@ export default function RootLayout({
             </MainLayout>
             <Toaster 
               position="bottom-right" 
+              richColors
+              expand={true}
               toastOptions={{
                 style: {
-                  background: 'rgba(var(--card), 0.8)',
+                  borderRadius: '1.25rem',
+                  padding: '16px',
                   backdropFilter: 'blur(16px)',
                   border: '1px solid rgba(255, 255, 255, 0.1)',
-                  color: 'hsl(var(--foreground))',
-                  borderRadius: '1.25rem',
                 },
-                className: "premium-toast",
+                className: "premium-toast font-poppins",
               }}
             />
           </ReduxProvider>

@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ShieldAlert, LogOut, MapPin, User as UserIcon, Layers, LogIn, UserPlus, Menu, X } from "lucide-react";
+import { toast } from "sonner";
 import { usePathname } from "next/navigation";
 import ThemeToggle from "./ThemeToggle";
 import { useAppSelector, useAppDispatch } from "@/store";
@@ -30,6 +31,9 @@ export default function Navbar() {
     document.cookie = "token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;";
     
     dispatch(logout());
+    toast.success("Signed out", {
+      description: "Session terminated safely.",
+    });
     window.location.href = "/login";
   };
 

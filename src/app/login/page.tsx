@@ -9,6 +9,7 @@ import { useAppDispatch } from "@/store";
 import { setCredentials } from "@/store/slices/authSlice";
 import { setProfile } from "@/store/slices/userSlice";
 import ThemeToggle from "@/components/ThemeToggle";
+import { toast } from "sonner";
 
 function LoginComponent() {
   const router = useRouter();
@@ -49,9 +50,10 @@ function LoginComponent() {
       // Immediately populate Redux state with user data 
       dispatch(setProfile(data.user));
 
-      // A tiny delay to allow flush-to-disk before navigation
       setTimeout(() => {
-        console.log("[Login] Handshake finalized. Navigating to leads...");
+        toast.success("Signed in", {
+          description: "Welcome back to the admin dashboard.",
+        });
         router.push("/leads");
       }, 100);
     } catch (err: any) {
